@@ -1,5 +1,5 @@
-// Package movie has the User type and associated methods to
-// create, modify and delete application users
+// Package movie has the Movie struct and associated methods to
+// create, modify, delete and get movies
 package movie
 
 import (
