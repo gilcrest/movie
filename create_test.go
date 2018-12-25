@@ -24,6 +24,8 @@ func TestMovie_validate(t *testing.T) {
 		wantErr bool
 	}{
 		{"All Valid", fields{"Repo Man", 1984, "R", time.Now(), 92, "Alex Cox", "Alex Cox", "gilcrest"}, false},
+		{"Invalid Year", fields{"Repo Man", 1800, "R", time.Now(), 92, "Alex Cox", "Alex Cox", "gilcrest"}, true},
+		{"Missing Title", fields{"", 1800, "R", time.Now(), 92, "Alex Cox", "Alex Cox", "gilcrest"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
