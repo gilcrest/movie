@@ -1,8 +1,6 @@
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/gilcrest/auth v0.0.2/go.mod h1:1J4E67b+IMzoqpnzmzz4TX/5hdhC2OcYwyv2gDVCx6I=
-github.com/gilcrest/auth v0.1.0 h1:n3+L6x38EObDQIt7Vk98Klh/cw5ZnyvFykJuUYSVutg=
-github.com/gilcrest/auth v0.1.0/go.mod h1:1J4E67b+IMzoqpnzmzz4TX/5hdhC2OcYwyv2gDVCx6I=
 github.com/gilcrest/date v0.1.0/go.mod h1:GWJItMJ7//n7fNttWOyn8i1xEfmfadASHRXPHHKbe8Y=
 github.com/gilcrest/dbaudit v0.0.1 h1:nyo6TWrYMh2iVjj+BrMBXZuHEaCQ1hAkWZPWERuMnJc=
 github.com/gilcrest/dbaudit v0.0.1/go.mod h1:OcMzt09D4e+8qZIEPaL9pGDzmAYtvKBcEnxzFhXE+nY=
