@@ -3,16 +3,15 @@
 package movie
 
 import (
-	"fmt"
+	"context"
+	"database/sql"
 	"time"
 
+	"github.com/gilcrest/auth"
 	"github.com/gilcrest/dbaudit"
 	"github.com/gilcrest/errors"
+	"github.com/rs/zerolog"
 )
-
-// // ErrNoUser is an error when a user is passed
-// // that does not exist in the db
-// var ErrNoUser = errors.Str("User does not exist")
 
 // Movie holds details of a movie
 type Movie struct {
@@ -26,8 +25,10 @@ type Movie struct {
 	dbaudit.Audit
 }
 
-func (m *Movie) validate() error {
-	const op errors.Op = "movie/validate"
+// Validate does basic input validation and ensures the struct is
+// properly constructed
+func (m *Movie) Validate() error {
+	const op errors.Op = "movie/Movie.validate"
 
 	switch {
 	case len(m.Title) == 0:
@@ -44,146 +45,83 @@ func (m *Movie) validate() error {
 		return errors.E(op, errors.MissingField("Director"))
 	case len(m.Writer) == 0:
 		return errors.E(op, errors.MissingField("Writer"))
-	default:
-		fmt.Println("This movie is so valid!!!!")
 	}
 
 	return nil
 }
 
-// func (u *User) hashPassword() error {
-// 	const op errors.Op = "usr.User.hashPassword"
+// Create creates a Movie and stores it in the database
+func (m *Movie) Create(ctx context.Context, log zerolog.Logger, tx *sql.Tx) (*sql.Tx, error) {
+	const op errors.Op = "movie/Movie.Create"
 
-// 	// Salt and hash the password using the bcrypt algorithm
-// 	passHash, err := bcrypt.GenerateFromPassword([]byte(u.Password), 8)
-// 	if err != nil {
-// 		return err
-// 	}
+	srvToken := auth.ServerTokenCtx(ctx)
 
-// 	u.Password = string(passHash)
+	tx, err := m.createDB(ctx, log, tx, srvToken)
+	if err != nil {
+		return nil, errors.E(op, err)
+	}
 
-// 	return nil
-// }
+	return tx, nil
+}
 
-// func (u *User) validateEmail() error {
-// 	const op errors.Op = "usr.User.validateEmail"
-// 	_, err := mail.ParseAddress(u.Email)
-// 	if err != nil {
-// 		return errors.E(op, err)
-// 	}
-// 	return nil
-// }
+// createDB creates a record in the user table using a stored function
+func (m *Movie) createDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx, srvrToken string) (*sql.Tx, error) {
+	const op errors.Op = "movie/Movie.createDB"
 
-// // Create performs business validations prior to writing to the db
-// func (u *User) Create(ctx context.Context, log zerolog.Logger) error {
-// 	const op errors.Op = "usr.User.Create"
+	var (
+		createTimestamp time.Time
+	)
 
-// 	err := u.validate()
-// 	if err != nil {
-// 		return errors.E(op, err)
-// 	}
+	// Prepare the sql statement using bind variables
+	stmt, err := tx.PrepareContext(ctx, `select demo.create_movie (
+		p_title => $1,
+		p_year => $2,
+		p_rated => $3,
+		p_released => $4,
+		p_run_time => $5,
+		p_director => $6,
+		p_writer => $7,
+		p_create_server_token => $8,
+		p_username => $9)`)
 
-// 	err = u.hashPassword()
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
 
-// 	return nil
-// }
+	// Execute stored function that returns the create_date timestamp,
+	// hence the use of QueryContext instead of Exec
+	rows, err := stmt.QueryContext(ctx,
+		m.Title,          //$1
+		m.Year,           //$2
+		m.Rated,          //$3
+		m.Released,       //$4
+		m.RunTime,        //$5
+		m.Director,       //$6
+		m.Writer,         //$7
+		srvrToken,        //$8
+		m.CreateUsername) //$9
 
-// // CreateDB creates a record in the user table using a stored function
-// func (u *User) CreateDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) error {
-// 	const op errors.Op = "usr.User.CreateDB"
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-// 	var (
-// 		updateTimestamp time.Time
-// 	)
+	// Iterate through the returned record(s)
+	for rows.Next() {
+		if err := rows.Scan(&createTimestamp); err != nil {
+			return nil, err
+		}
+	}
 
-// 	// Prepare the sql statement using bind variables
-// 	stmt, err := tx.PrepareContext(ctx, `select auth.create_user (
-// 		p_pgm => $1,
-// 		p_username => $2,
-// 		p_password => $3,
-// 		p_first_name => $4,
-// 		p_last_name => $5,
-// 		p_email => $6,
-// 		p_mobile_id => $7,
-// 		p_client_id => $8,
-// 		p_create_username => $9)`)
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer stmt.Close()
+	// set the CreateDate field to the create_date set as part of the insert in
+	// the stored function call above
+	m.CreateTimestamp = createTimestamp
 
-// 	// Execute stored function that returns the create_date timestamp,
-// 	// hence the use of QueryContext instead of Exec
-// 	rows, err := stmt.QueryContext(ctx,
-// 		0,                //$1
-// 		u.Username,       //$2
-// 		u.Password,       //$3
-// 		u.FirstName,      //$4
-// 		u.LastName,       //$5
-// 		u.Email,          //$6
-// 		u.MobileID,       //$7
-// 		u.CreateClientID, //$8
-// 		u.CreateUsername) //$9
+	return tx, nil
 
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer rows.Close()
-
-// 	// Iterate through the returned record(s)
-// 	for rows.Next() {
-// 		if err := rows.Scan(&updateTimestamp); err != nil {
-// 			return err
-// 		}
-// 	}
-
-// 	if err := rows.Err(); err != nil {
-// 		return err
-// 	}
-
-// 	// set the CreateDate field to the create_date set as part of the insert in
-// 	// the stored function call above
-// 	u.UpdateTimestamp = updateTimestamp
-
-// 	return nil
-
-// }
-
-// // UserFromUsername constructs a User given a username
-// func UserFromUsername(ctx context.Context, log zerolog.Logger, tx *sql.Tx, username string) (*User, error) {
-// 	const op errors.Op = "appuser.UserFromUsername"
-
-// 	// Prepare the sql statement using bind variables
-// 	row := tx.QueryRowContext(ctx,
-// 		`select username,
-// 				password,
-// 				mobile_id,
-// 				email_address,
-// 				first_name,
-// 				last_name,
-// 				update_client_id,
-// 				update_user_id,
-// 				update_timestamp
-//   		   from demo.user
-//           where username = $1`, username)
-
-// 	usr := new(User)
-// 	err := row.Scan(&usr.Username,
-// 		&usr.Password,
-// 		&usr.MobileID,
-// 		&usr.Email,
-// 		&usr.FirstName,
-// 		&usr.LastName,
-// 		&usr.UpdateClientID,
-// 		&usr.UpdateUsername,
-// 		&usr.UpdateTimestamp,
-// 	)
-// 	if err == sql.ErrNoRows {
-// 		return nil, errors.E(op, ErrNoUser)
-// 	} else if err != nil {
-// 		return nil, errors.E(op, err)
-// 	}
-
-// 	return usr, nil
-// }
+}
