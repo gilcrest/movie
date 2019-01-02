@@ -7,9 +7,9 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/gilcrest/auth"
 	"github.com/gilcrest/dbaudit"
 	"github.com/gilcrest/errors"
+	"github.com/gilcrest/servertoken"
 	"github.com/rs/zerolog"
 )
 
@@ -54,7 +54,7 @@ func (m *Movie) Validate() error {
 func (m *Movie) Create(ctx context.Context, log zerolog.Logger, tx *sql.Tx) (*sql.Tx, error) {
 	const op errors.Op = "movie/Movie.Create"
 
-	srvToken := auth.ServerTokenCtx(ctx)
+	srvToken := servertoken.FromCtx(ctx)
 
 	tx, err := m.createDB(ctx, log, tx, srvToken)
 	if err != nil {
