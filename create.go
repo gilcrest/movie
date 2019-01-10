@@ -7,9 +7,9 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/gilcrest/apiclient"
 	"github.com/gilcrest/dbaudit"
 	"github.com/gilcrest/errors"
-	"github.com/gilcrest/servertoken"
 	"github.com/rs/zerolog"
 )
 
@@ -51,29 +51,31 @@ func (m *Movie) Validate() error {
 }
 
 // Create creates a Movie and stores it in the database
-func (m *Movie) Create(ctx context.Context, log zerolog.Logger, tx *sql.Tx) (*sql.Tx, error) {
+func (m *Movie) Create(ctx context.Context, log zerolog.Logger, tx *sql.Tx) error {
 	const op errors.Op = "movie/Movie.Create"
 
-	srvToken := servertoken.FromCtx(ctx)
-
-	tx, err := m.createDB(ctx, log, tx, srvToken)
+	err := m.createDB(ctx, log, tx)
 	if err != nil {
-		return nil, errors.E(op, err)
+		return errors.E(op, err)
 	}
 
-	return tx, nil
+	return nil
 }
 
 // createDB creates a record in the user table using a stored function
-func (m *Movie) createDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx, srvrToken string) (*sql.Tx, error) {
+func (m *Movie) createDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) error {
 	const op errors.Op = "movie/Movie.createDB"
 
-	var (
-		createTimestamp time.Time
-	)
+	createClient, err := apiclient.ViaServerToken(ctx, tx)
+	if err != nil {
+		return errors.E(op, err)
+	}
 
 	// Prepare the sql statement using bind variables
-	stmt, err := tx.PrepareContext(ctx, `select demo.create_movie (
+	stmt, err := tx.PrepareContext(ctx, `
+	select o_create_timestamp,
+		   o_update_timestamp
+	  from demo.create_movie (
 		p_title => $1,
 		p_year => $2,
 		p_rated => $3,
@@ -81,47 +83,54 @@ func (m *Movie) createDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx, sr
 		p_run_time => $5,
 		p_director => $6,
 		p_writer => $7,
-		p_create_server_token => $8,
-		p_username => $9)`)
+		p_create_client_num => $8,
+		p_create_username => $9)`)
 
 	if err != nil {
-		return nil, err
+		return errors.E(op, err)
 	}
 	defer stmt.Close()
+
+	var (
+		createTime time.Time
+		updateTime time.Time
+	)
 
 	// Execute stored function that returns the create_date timestamp,
 	// hence the use of QueryContext instead of Exec
 	rows, err := stmt.QueryContext(ctx,
-		m.Title,          //$1
-		m.Year,           //$2
-		m.Rated,          //$3
-		m.Released,       //$4
-		m.RunTime,        //$5
-		m.Director,       //$6
-		m.Writer,         //$7
-		srvrToken,        //$8
-		m.CreateUsername) //$9
+		m.Title,             //$1
+		m.Year,              //$2
+		m.Rated,             //$3
+		m.Released,          //$4
+		m.RunTime,           //$5
+		m.Director,          //$6
+		m.Writer,            //$7
+		createClient.Number, //$8
+		"gilcrest")          //$9
 
 	if err != nil {
-		return nil, err
+		return errors.E(op, err)
 	}
 	defer rows.Close()
 
 	// Iterate through the returned record(s)
 	for rows.Next() {
-		if err := rows.Scan(&createTimestamp); err != nil {
-			return nil, err
+		if err := rows.Scan(&createTime, &updateTime); err != nil {
+			return errors.E(op, err)
 		}
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return errors.E(op, err)
 	}
 
-	// set the CreateDate field to the create_date set as part of the insert in
-	// the stored function call above
-	m.CreateTimestamp = createTimestamp
+	// set the dbaudit fields
+	m.CreateClient = *createClient
+	m.CreateTimestamp = createTime
+	m.UpdateClient = *createClient
+	m.UpdateTimestamp = updateTime
 
-	return tx, nil
+	return nil
 
 }
