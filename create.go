@@ -32,31 +32,19 @@ func (m *Movie) Validate() error {
 
 	switch {
 	case len(m.Title) == 0:
-		return errors.E(op, errors.MissingField("Title"))
+		return errors.E(op, errors.Validation, errors.Parameter("Title"), errors.MissingField("Title"))
 	case m.Year < 1878:
-		return errors.E(op, "The first film was in 1878, Year must be >= 1878")
+		return errors.E(op, errors.Validation, errors.Parameter("Title"), "The first film was in 1878, Year must be >= 1878")
 	case len(m.Rated) == 0:
-		return errors.E(op, errors.MissingField("Rated"))
+		return errors.E(op, errors.Validation, errors.Parameter("Rated"), errors.MissingField("Rated"))
 	case m.Released.IsZero() == true:
-		return errors.E(op, "Released must have a value")
+		return errors.E(op, errors.Validation, errors.Parameter("ReleaseDate"), "Released must have a value")
 	case m.RunTime <= 0:
-		return errors.E(op, "Run time must be greater than zero")
+		return errors.E(op, errors.Validation, errors.Parameter("RunTime"), "Run time must be greater than zero")
 	case len(m.Director) == 0:
-		return errors.E(op, errors.MissingField("Director"))
+		return errors.E(op, errors.Validation, errors.Parameter("Director"), errors.MissingField("Director"))
 	case len(m.Writer) == 0:
-		return errors.E(op, errors.MissingField("Writer"))
-	}
-
-	return nil
-}
-
-// Create creates a Movie and stores it in the database
-func (m *Movie) Create(ctx context.Context, log zerolog.Logger, tx *sql.Tx) error {
-	const op errors.Op = "movie/Movie.Create"
-
-	err := m.createDB(ctx, log, tx)
-	if err != nil {
-		return errors.E(op, err)
+		return errors.E(op, errors.Validation, errors.Parameter("Writer"), errors.MissingField("Writer"))
 	}
 
 	return nil
