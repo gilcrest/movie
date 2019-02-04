@@ -102,7 +102,7 @@ func TestMovie_CreateDB(t *testing.T) {
 				Director: tt.fields.Director,
 				Writer:   tt.fields.Writer,
 			}
-			err := m.createDB(tt.args.ctx, tt.args.log, tt.args.tx)
+			err := m.CreateDB(tt.args.ctx, tt.args.log, tt.args.tx)
 			if err != nil {
 				t.Errorf("Movie.createDB() error = %v, wantErr %v", err, tt.wantErr)
 			}
