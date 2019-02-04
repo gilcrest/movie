@@ -50,8 +50,8 @@ func (m *Movie) Validate() error {
 	return nil
 }
 
-// createDB creates a record in the user table using a stored function
-func (m *Movie) createDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) error {
+// CreateDB creates a record in the user table using a stored function
+func (m *Movie) CreateDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) error {
 	const op errors.Op = "movie/Movie.createDB"
 
 	createClient, err := apiclient.ViaServerToken(ctx, tx)
