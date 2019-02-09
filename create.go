@@ -34,7 +34,7 @@ func (m *Movie) Validate() error {
 	case len(m.Title) == 0:
 		return errors.E(op, errors.Validation, errors.Parameter("Title"), errors.MissingField("Title"))
 	case m.Year < 1878:
-		return errors.E(op, errors.Validation, errors.Parameter("Title"), "The first film was in 1878, Year must be >= 1878")
+		return errors.E(op, errors.Validation, errors.Parameter("Year"), "The first film was in 1878, Year must be >= 1878")
 	case len(m.Rated) == 0:
 		return errors.E(op, errors.Validation, errors.Parameter("Rated"), errors.MissingField("Rated"))
 	case m.Released.IsZero() == true:
