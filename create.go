@@ -25,25 +25,70 @@ type Movie struct {
 	dbaudit.Audit
 }
 
+// Create performs business validations prior to writing to the db
+func (m *Movie) Create(ctx context.Context, log zerolog.Logger, tx *sql.Tx) error {
+	const op errors.Op = "usr/User.Create"
+
+	// Validate input data
+	err := m.validate()
+	if err != nil {
+		if e, ok := err.(*errors.Error); ok {
+			return errors.E(errors.Validation, e.Param, err)
+		}
+		// should not get here, but just in case
+		return errors.E(errors.Validation, err)
+	}
+
+	// Pull client information from Server token and set
+	createClient, err := apiclient.ViaServerToken(ctx, tx)
+	if err != nil {
+		return errors.E(op, errors.Internal, err)
+	}
+	m.CreateClient.Number = createClient.Number
+	m.UpdateClient.Number = createClient.Number
+
+	// Create the user record in the database
+	err = m.createDB(ctx, log, tx)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.E(op, errors.Database, err)
+		}
+		// Kind could be Database or Exist from db, so
+		// use type assertion and send both up
+		if e, ok := err.(*errors.Error); ok {
+			return errors.E(e.Kind, e.Code, e.Param, err)
+		}
+		// Should not actually fall to here, but including as
+		// good practice
+		return errors.E(op, errors.Database, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return errors.E(op, errors.Database, err)
+	}
+
+	return nil
+}
+
 // Validate does basic input validation and ensures the struct is
 // properly constructed
-func (m *Movie) Validate() error {
+func (m *Movie) validate() error {
 	const op errors.Op = "movie/Movie.validate"
 
 	switch {
-	case len(m.Title) == 0:
+	case m.Title == "":
 		return errors.E(op, errors.Validation, errors.Parameter("Title"), errors.MissingField("Title"))
 	case m.Year < 1878:
 		return errors.E(op, errors.Validation, errors.Parameter("Year"), "The first film was in 1878, Year must be >= 1878")
-	case len(m.Rated) == 0:
+	case m.Rated == "":
 		return errors.E(op, errors.Validation, errors.Parameter("Rated"), errors.MissingField("Rated"))
 	case m.Released.IsZero() == true:
 		return errors.E(op, errors.Validation, errors.Parameter("ReleaseDate"), "Released must have a value")
 	case m.RunTime <= 0:
 		return errors.E(op, errors.Validation, errors.Parameter("RunTime"), "Run time must be greater than zero")
-	case len(m.Director) == 0:
+	case m.Director == "":
 		return errors.E(op, errors.Validation, errors.Parameter("Director"), errors.MissingField("Director"))
-	case len(m.Writer) == 0:
+	case m.Writer == "":
 		return errors.E(op, errors.Validation, errors.Parameter("Writer"), errors.MissingField("Writer"))
 	}
 
@@ -51,13 +96,8 @@ func (m *Movie) Validate() error {
 }
 
 // CreateDB creates a record in the user table using a stored function
-func (m *Movie) CreateDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) error {
+func (m *Movie) createDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) error {
 	const op errors.Op = "movie/Movie.createDB"
-
-	createClient, err := apiclient.ViaServerToken(ctx, tx)
-	if err != nil {
-		return errors.E(op, err)
-	}
 
 	// Prepare the sql statement using bind variables
 	stmt, err := tx.PrepareContext(ctx, `
@@ -87,15 +127,15 @@ func (m *Movie) CreateDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) er
 	// Execute stored function that returns the create_date timestamp,
 	// hence the use of QueryContext instead of Exec
 	rows, err := stmt.QueryContext(ctx,
-		m.Title,             //$1
-		m.Year,              //$2
-		m.Rated,             //$3
-		m.Released,          //$4
-		m.RunTime,           //$5
-		m.Director,          //$6
-		m.Writer,            //$7
-		createClient.Number, //$8
-		"gilcrest")          //$9
+		m.Title,               //$1
+		m.Year,                //$2
+		m.Rated,               //$3
+		m.Released,            //$4
+		m.RunTime,             //$5
+		m.Director,            //$6
+		m.Writer,              //$7
+		m.CreateClient.Number, //$8
+		m.CreateUsername)      //$9
 
 	if err != nil {
 		return errors.E(op, err)
@@ -113,10 +153,8 @@ func (m *Movie) CreateDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) er
 		return errors.E(op, err)
 	}
 
-	// set the dbaudit fields
-	m.CreateClient = *createClient
+	// set the dbaudit fields with timestamps from the database
 	m.CreateTimestamp = createTime
-	m.UpdateClient = *createClient
 	m.UpdateTimestamp = updateTime
 
 	return nil

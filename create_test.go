@@ -32,6 +32,11 @@ func TestMovie_Validate(t *testing.T) {
 		{"All Valid", fields{"Repo Man", 1984, "R", time.Now(), 92, "Alex Cox", "Alex Cox"}, false},
 		{"Invalid Year", fields{"Repo Man", 1800, "R", time.Now(), 92, "Alex Cox", "Alex Cox"}, true},
 		{"Missing Title", fields{"", 1800, "R", time.Now(), 92, "Alex Cox", "Alex Cox"}, true},
+		{"Missing Rated", fields{"Repo Man", 1984, "", time.Now(), 92, "Alex Cox", "Alex Cox"}, true},
+		{"Zero ReleaseDate", fields{"Repo Man", 1984, "R", time.Time{}, 92, "Alex Cox", "Alex Cox"}, true},
+		{"Invalid Runtime", fields{"Repo Man", 1984, "R", time.Now(), 0, "Alex Cox", "Alex Cox"}, true},
+		{"Missing Director", fields{"Repo Man", 1984, "R", time.Now(), 92, "", "Alex Cox"}, true},
+		{"Missing Writer", fields{"Repo Man", 1984, "R", time.Now(), 92, "Alex Cox", ""}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -44,7 +49,7 @@ func TestMovie_Validate(t *testing.T) {
 				Director: tt.fields.Director,
 				Writer:   tt.fields.Writer,
 			}
-			if err := m.Validate(); (err != nil) != tt.wantErr {
+			if err := m.validate(); (err != nil) != tt.wantErr {
 				t.Errorf("Movie.Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -102,7 +107,7 @@ func TestMovie_CreateDB(t *testing.T) {
 				Director: tt.fields.Director,
 				Writer:   tt.fields.Writer,
 			}
-			err := m.CreateDB(tt.args.ctx, tt.args.log, tt.args.tx)
+			err := m.createDB(tt.args.ctx, tt.args.log, tt.args.tx)
 			if err != nil {
 				t.Errorf("Movie.createDB() error = %v, wantErr %v", err, tt.wantErr)
 			}
