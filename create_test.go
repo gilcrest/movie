@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gilcrest/env"
+	"github.com/gilcrest/env/datastore"
 	"github.com/gilcrest/servertoken"
-	"github.com/gilcrest/srvr"
-	"github.com/gilcrest/srvr/datastore"
 	"github.com/rs/zerolog"
 )
 
@@ -72,7 +72,7 @@ func TestMovie_CreateDB(t *testing.T) {
 		tx  *sql.Tx
 	}
 
-	srvr, err := srvr.NewServer(zerolog.DebugLevel)
+	env, err := env.NewEnv(env.Dev, zerolog.DebugLevel)
 	if err != nil {
 		t.Errorf("Error from Newserver = %v", err)
 	}
@@ -82,11 +82,11 @@ func TestMovie_CreateDB(t *testing.T) {
 
 	f1 := fields{"Repo Man", 1984, "R", time.Now(), 92, "Alex Cox", "Alex Cox"} //, aud}
 
-	tx, err := srvr.DS.BeginTx(ctx, nil, datastore.AppDB)
+	tx, err := env.DS.BeginTx(ctx, nil, datastore.AppDB)
 	if err != nil {
 		t.Errorf("Error from BeginTx = %v", err)
 	}
-	arg := args{ctx, srvr.Logger, tx}
+	arg := args{ctx, env.Logger, tx}
 
 	tests := []struct {
 		name    string
