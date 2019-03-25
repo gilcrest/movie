@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gilcrest/envy"
-	"github.com/gilcrest/envy/datastore"
+	"github.com/gilcrest/env"
+	"github.com/gilcrest/env/datastore"
 	"github.com/gilcrest/servertoken"
 	"github.com/rs/zerolog"
 )
@@ -72,7 +72,7 @@ func TestMovie_CreateDB(t *testing.T) {
 		tx  *sql.Tx
 	}
 
-	env, err := envy.NewEnv(envy.Dev, zerolog.DebugLevel)
+	env, err := env.NewEnv(env.Dev, zerolog.DebugLevel)
 	if err != nil {
 		t.Errorf("Error from Newserver = %v", err)
 	}
