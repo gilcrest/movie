@@ -27,7 +27,7 @@ type Movie struct {
 
 // Create performs business validations prior to writing to the db
 func (m *Movie) Create(ctx context.Context, log zerolog.Logger, tx *sql.Tx) error {
-	const op errors.Op = "usr/User.Create"
+	const op errors.Op = "movie/Movie.Create"
 
 	// Validate input data
 	err := m.validate()
@@ -119,11 +119,6 @@ func (m *Movie) createDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) er
 	}
 	defer stmt.Close()
 
-	var (
-		createTime time.Time
-		updateTime time.Time
-	)
-
 	// Execute stored function that returns the create_date timestamp,
 	// hence the use of QueryContext instead of Exec
 	rows, err := stmt.QueryContext(ctx,
@@ -142,6 +137,11 @@ func (m *Movie) createDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) er
 	}
 	defer rows.Close()
 
+	var (
+		createTime time.Time
+		updateTime time.Time
+	)
+
 	// Iterate through the returned record(s)
 	for rows.Next() {
 		if err := rows.Scan(&createTime, &updateTime); err != nil {
@@ -149,6 +149,8 @@ func (m *Movie) createDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) er
 		}
 	}
 
+	// If any error was encountered while iterating through rows.Next above
+	// it will be returned here
 	if err := rows.Err(); err != nil {
 		return errors.E(op, err)
 	}
@@ -158,5 +160,4 @@ func (m *Movie) createDB(ctx context.Context, log zerolog.Logger, tx *sql.Tx) er
 	m.UpdateTimestamp = updateTime
 
 	return nil
-
 }
